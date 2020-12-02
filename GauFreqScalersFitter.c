@@ -227,6 +227,7 @@ int PrepareInput(char * level, unsigned int i)
     Pauser("Error! Cannot create Gaussian input file!");
     return generateInputError;
   }
+  printf("Progress %2d/%2d...\n", i + 1, totalMolecules);
   printf("Generating input file for %s...\n", fileNames[i]);
   /*  If you want to use Orca instead of Gaussian, change here.  */
   fprintf(flp, "# Opt Freq %s\n\n%s\n\n", level, fileNames[i]);
