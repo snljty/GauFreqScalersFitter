@@ -12,8 +12,6 @@
  * The result will be saved to scalers_result.txt.                   *
  */
 
-typedef enum {False, True} Bool;
-
 typedef struct {double slope, r_squared;} FitResult;
 
 # define totalMolecules 15
@@ -75,26 +73,27 @@ unsigned int freqDataPos = 0;
 char gauExe[] = "g16";
 
 
-void Pauser(const char * prompt);
-int PrepareInput(char * level, unsigned int i);
+void Pauser(const char *prompt);
+int PrepareInput(char *level, unsigned int i);
 int CalcFile(unsigned int i);
 int ReadFreq(unsigned int i);
-FitResult NoInterceptLinearFit(const double * x, const double * y, unsigned int n);
+FitResult NoInterceptLinearFit(const double *x, const double *y, unsigned int n);
 
 int main(int argc, char const * argv[])
 {
-  char buf[BUFSIZ] = "";
+  char buf[BUFSIZ + 1] = "";
   unsigned int i = 0;
-  char level[BUFSIZ] = "";
+  char level[BUFSIZ + 1] = "";
   FitResult fitFundFreq = {1., 1.};
   FitResult fitZPE = {1., 1.};
-  FILE * oflp = NULL;
+  FILE *oflp = NULL;
   time_t startTime = 0, endTime = 0;
 
   /*  get level  */
   if (argc == 1)
   {
-    puts("Tests 15 small molecules and generates frequency scalers");
+    printf("Tests %d small molecules and generates frequency scalers\n", \
+      (int)(sizeof(ZPE_expe) / sizeof(double)));
     puts("for fundamental frequency and zero-point energy using Gaussian.\n");
     puts("Before using, you need to set system environment variable");
     puts("GAUSS_EXEDIR to the directory containing your gaussian executable.");
@@ -114,7 +113,7 @@ int main(int argc, char const * argv[])
 
   /*  invoke Gaussian  */
   time(& startTime);
-  for (i = 0; i < totalMolecules; i ++)
+  for (i = 0; i < totalMolecules; ++ i)
   {
     /*  prepare input files  */
     if (PrepareInput(level, i))
@@ -130,13 +129,13 @@ int main(int argc, char const * argv[])
   /*  Print Values  */
   if (argc == 1)
   {
-    for (i = 0; i < totalFrequencies; i ++)
+    for (i = 0; i < totalFrequencies; ++ i)
     {
       printf("Calculated   frequency %d: %9.4lf\n", i, fundFreq_comp[i]);
       printf("Experimental frequency %d: %9.4lf\n", i, fundFreq_expe[i]);
     }
     puts("");
-    for (i = 0; i < totalMolecules; i ++)
+    for (i = 0; i < totalMolecules; ++ i)
     {
       printf("Calculated   ZPE %d: %8.5lf\n", i, ZPE_comp[i]);
       printf("Experimental ZPE %d: %8.5lf\n", i, ZPE_expe[i]);
@@ -174,7 +173,7 @@ int main(int argc, char const * argv[])
     fgets(buf, BUFSIZ, stdin);
     if (! strcmp(buf, "\n"))
     {
-      for (i = 0; i < totalMolecules; i ++)
+      for (i = 0; i < totalMolecules; ++ i)
       {
         printf("Removing %s...\n", fileNames[i]);
         strncpy(buf, fileNames[i], maxNameLength);
@@ -183,12 +182,16 @@ int main(int argc, char const * argv[])
         strncpy(buf, fileNames[i], maxNameLength);
         strcat(buf, ".out");
         remove(buf);
+        strncpy(buf, fileNames[i], maxNameLength);
+        strcat(buf, ".chk");
+        remove(buf);
       }
+      remove("fort.6");
     }
   }
   else
   {
-    for (i = 0; i < totalMolecules; i ++)
+    for (i = 0; i < totalMolecules; ++ i)
     {
       strncpy(buf, fileNames[i], maxNameLength);
       strcat(buf, ".gjf");
@@ -203,7 +206,7 @@ int main(int argc, char const * argv[])
 }
 
 
-void Pauser(const char * prompt)
+void Pauser(const char *prompt)
 {
   char c = '\0';
   puts(prompt);
@@ -213,13 +216,12 @@ void Pauser(const char * prompt)
   return;
 }
 
-int PrepareInput(char * level, unsigned int i)
+int PrepareInput(char *level, unsigned int i)
 {
-  char fn[BUFSIZ] = "";
+  char fn[BUFSIZ + 1] = "";
   FILE * flp = NULL;
 
   strncpy(fn, fileNames[i], maxNameLength);
-  /*  If you want to use Orca instead of Gaussian, change here.  */
   strncat(fn, ".gjf", maxExtNameLength);
   flp = fopen(fn, "w");
   if (! flp)
@@ -229,9 +231,11 @@ int PrepareInput(char * level, unsigned int i)
   }
   printf("Progress %2d/%2d...\n", i + 1, totalMolecules);
   printf("Generating input file for %s...\n", fileNames[i]);
-  /*  If you want to use Orca instead of Gaussian, change here.  */
-  fprintf(flp, "# Opt Freq %s\n\n%s\n\n", level, fileNames[i]);
-  /*  If you want to use Orca instead of Gaussian, change here.  */
+  fprintf(flp, "%%chk=%s.chk\n", fileNames[i]);
+  fprintf(flp, "# Opt %s\n", level);
+  fprintf(flp, "\n");
+  fprintf(flp, "%s\n", fileNames[i]);
+  fprintf(flp, "\n");
   switch (i)
   {
   case 0:
@@ -340,7 +344,10 @@ int PrepareInput(char * level, unsigned int i)
   default:
     break;
   }
-  /*  If you want to use Orca instead of Gaussian, change here.  */
+  fputs("\n", flp);
+  fputs("--link1--\n", flp);
+  fprintf(flp, "%%chk=%s.chk\n", fileNames[i]);
+  fprintf(flp, "# Freq %s Geom=AllCheck Guess=Read\n", level);
   fputs("\n", flp);
   fclose(flp);
   flp = NULL;
@@ -350,9 +357,9 @@ int PrepareInput(char * level, unsigned int i)
 
 int CalcFile(unsigned int i)
 {
-  char cmnd[BUFSIZ] = "";
+  char cmnd[BUFSIZ + 1] = "";
 
-  while (True)
+  for (;;)
   {
     strncpy(cmnd, gauExe, 8);
     strcat(cmnd, " ");
@@ -385,13 +392,13 @@ int CalcFile(unsigned int i)
 
 int ReadFreq(unsigned int i)
 {
-  FILE * flp = NULL;
+  FILE *flp = NULL;
   char flname[maxNameLength + maxExtNameLength] = "";
-  char line[BUFSIZ] = "";
+  char line[BUFSIZ + 1] = "";
   unsigned int t = 0;
   double tmpVal = 0.;
   unsigned int tmpValAmount = 0;
-  char * readPos = NULL;
+  char *readPos = NULL;
 
   strncpy(flname, fileNames[i], maxNameLength);
   strcat(flname, ".out");
@@ -421,18 +428,18 @@ int ReadFreq(unsigned int i)
       while (sscanf(readPos, "%lf", & tmpVal))
       {
         while (* readPos == ' ')
-          readPos ++;
+          ++ readPos;
         readPos = strpbrk(readPos, " \n");
         if (tmpValAmount && fabs(fundFreq_comp[freqDataPos] / tmpValAmount - tmpVal) >= freqThreshhold)
         {
           /*  save old value  */
           fundFreq_comp[freqDataPos] /= tmpValAmount;
           tmpValAmount = 0;
-          freqDataPos ++;
+          ++ freqDataPos;
         }
         /*  add this number as a fundFreq_comp[freqDataPos]  */
         fundFreq_comp[freqDataPos] += tmpVal;
-        tmpValAmount ++;
+        ++ tmpValAmount;
         if (* readPos == '\n')
           break;
       }
@@ -441,14 +448,14 @@ int ReadFreq(unsigned int i)
   /*  reading this file done, force to save the last value.  */
   fundFreq_comp[freqDataPos] /= tmpValAmount;
   tmpValAmount = 0;
-  freqDataPos ++;
+  ++ freqDataPos;
   fclose(flp);
   flp = NULL;
 
   return 0;
 }
 
-FitResult NoInterceptLinearFit(const double * x, const double * y, unsigned int n)
+FitResult NoInterceptLinearFit(const double *x, const double *y, unsigned int n)
 {
   FitResult ans = {1., 1.};
   double Ex = 0., Ey = 0., Dx =0., Dy = 0.;
@@ -469,7 +476,7 @@ FitResult NoInterceptLinearFit(const double * x, const double * y, unsigned int 
    *  = Cov(x, y)^2/(Dx*Dy)                      */
 
   /*  Average of x, y, x*y, x^2 and y^2  */
-  for (i = 0; i < n; i ++)
+  for (i = 0; i < n; ++ i)
   {
     Ex += x[i];
     Ey += y[i];
