@@ -1,0 +1,9 @@
+%CPU=0-7
+%Mem=8GB
+%chk=[NAME].chk
+# Opt Freq B3LYP/def2SVP
+
+[NAME]
+
+[CHARGE_MULTIPLICITY_AND_GEOMETRY]
+
